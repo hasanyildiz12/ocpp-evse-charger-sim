@@ -43,7 +43,7 @@ It connects to any standard Central System Management System (**CSMS**) such as 
 
 ### 🌟 Why This Project?
 - **Zero Global State**: Completely refactored from legacy scripts into an Object-Oriented, state-machine-driven architecture.
-- **Hardware-Agnostic with HAL**: Seamlessly operates on **Raspberry Pi 3B+/4/5** with physical hardware (Nextion touchscreen, Modbus energy meter, ADS1115 ADC, PN532 NFC), or automatically switches to **Mock Drivers** on desktop PCs for pure simulation.
+- **Hardware-Agnostic with HAL**: Seamlessly operates on **Raspberry Pi 3B+/4/5** with physical hardware (Nextion touchscreen, Modbus energy meter, ADS1115 ADC), or automatically switches to **Mock Drivers** on desktop PCs for pure simulation.
 - **Fault-Tolerant WebSocket Client**: Handles disconnects with intelligent exponential backoff and correlates asynchronous request/response frames via `asyncio.Future`.
 
 ---
@@ -77,19 +77,13 @@ When deployed on embedded Linux / Raspberry Pi, the system interfaces with:
 │ Nextion 3.5" │          │ Modbus Meter │          │ ADS1115 ADC  │ (0x48)
 │  HMI Touch   │          │ Active Wh    │          │  (CP Sensing)│
 └──────────────┘          └──────────────┘          └──────────────┘
-                                                           │
-                                                    ┌──────────────┐
-                                                    │  PN532 NFC   │ (0x24)
-                                                    │  (RFID Auth) │
-                                                    └──────────────┘
 ```
 
 1. **Nextion 3.5" UART Touchscreen** (`/dev/ttyAMA0`, 9600 Baud): Real-time UI displaying charging status, elapsed time, power (kW), total energy (kWh), calculated cost, and RFID scan screens.
 2. **Modbus Energy Meter** (RS-485 via USB `/dev/ttyUSB0`): High-precision reading of active import energy register (`Wh`).
 3. **ADS1115 16-bit ADC** (I2C): Reads EV Control Pilot voltage with hardware divider (Gain=1, Multiplier=4.0303).
-4. **PN532 NFC / RFID Reader** (I2C): Intercepts Mifare / NFC tags to authenticate authorized users before allowing charge start.
 
-> 💡 **Desktop / CI Fallback:** If serial or I2C devices are not detected, `ocpp-projectMTLSN` logs a warning and automatically falls back to `NullDisplay`, `MockMeter`, `MockCpReader`, and `MockNfcReader` without crashing.
+> 💡 **Desktop / CI Fallback:** If serial or I2C devices are not detected, `ocpp-projectMTLSN` logs a warning and automatically falls back to `NullDisplay`, `MockMeter`, and `MockCpReader` without crashing.
 
 ---
 
@@ -114,7 +108,6 @@ graph TD
         B --> G["IDisplayDriver (NextionDisplay / NullDisplay)"]
         B --> H["IMeterReader (ModbusMeter / MockMeter)"]
         B --> I["ICpSignalReader (Ads1115CpReader / MockCpReader)"]
-        A --> J["INfcReader (Pn532Reader / MockNfcReader)"]
     end
 ```
 
@@ -151,8 +144,7 @@ ocpp-projectMTLSN/
 │           ├── __init__.py
 │           ├── display.py           # Touchscreen driver (Nextion & Null fallback)
 │           ├── meter.py             # Modbus RTU meter & candidate float decoder
-│           ├── cp_signal.py         # ADS1115 ADC reader & EV status mapper
-│           └── nfc.py               # PN532 I2C RFID reader & lazy initializer
+│           └── cp_signal.py         # ADS1115 ADC reader & EV status mapper
 │
 ├── tests/
 │   ├── __init__.py
@@ -211,9 +203,6 @@ CHARGE_BOX_ID=CP-1
 USER_ID_TAG=hasanyildizidtag
 BASIC_AUTH_USER=CP-1
 BASIC_AUTH_PASSWORD=your_secure_password
-
-# ─── NFC Card UID ────────────────────────────────────────────────────────────
-NFC_ALLOWED_ID=97350E07
 ```
 
 ### Running the Simulator

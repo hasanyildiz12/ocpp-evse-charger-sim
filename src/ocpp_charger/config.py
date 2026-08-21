@@ -33,10 +33,7 @@ class ChargePointConfig:
     basic_auth_user: str = "CP-1"
     basic_auth_password: str = "1234567890asdfgh"
 
-    # ─── NFC Authentication ──────────────────────────────────────────────────────
-    # Simülatör başlamadan önce NFC kart doğrulaması aktiftir.
-    # Sadece NFC_ALLOWED_ID ile eşleşen kart okutulduğunda simülasyon başlar.
-    nfc_allowed_id: str = "97350E07"
+
 
     # ─── Heartbeat ───────────────────────────────────────────────────────────────
     heartbeat_interval: int = 30
@@ -84,8 +81,7 @@ class ChargePointConfig:
             charge_box_id=os.environ.get("CHARGE_BOX_ID", "CP-1"),
             user_id_tag=os.environ.get("USER_ID_TAG", "hasanyildizidtag"),
             basic_auth_user=os.environ.get("BASIC_AUTH_USER", "CP-1"),
-            basic_auth_password=os.environ.get("BASIC_AUTH_PASSWORD", "1234567890asdfgh"),
-            nfc_allowed_id=os.environ.get("NFC_ALLOWED_ID", "97350E07")
+            basic_auth_password=os.environ.get("BASIC_AUTH_PASSWORD", "1234567890asdfgh")
         )
 
     def __post_init__(self) -> None:

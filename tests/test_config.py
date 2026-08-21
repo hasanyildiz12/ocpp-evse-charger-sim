@@ -13,7 +13,6 @@ def test_default_values():
     assert config.user_id_tag == "hasanyildizidtag"
     assert config.basic_auth_user == "CP-1"
     assert config.basic_auth_password == "1234567890asdfgh"
-    assert config.nfc_allowed_id == "97350E07"
     assert config.heartbeat_interval == 30
     assert config.meter_increment_wh == 500
     assert config.default_voltage == 230
@@ -39,7 +38,6 @@ def test_from_env(monkeypatch):
     monkeypatch.setenv("USER_ID_TAG", "testtag")
     monkeypatch.setenv("BASIC_AUTH_USER", "testuser")
     monkeypatch.setenv("BASIC_AUTH_PASSWORD", "testpass")
-    monkeypatch.setenv("NFC_ALLOWED_ID", "12345678")
     
     config = ChargePointConfig.from_env()
     assert config.csms_url == "wss://test.url/ws/CP-2"
@@ -47,7 +45,6 @@ def test_from_env(monkeypatch):
     assert config.user_id_tag == "testtag"
     assert config.basic_auth_user == "testuser"
     assert config.basic_auth_password == "testpass"
-    assert config.nfc_allowed_id == "12345678"
 
 def test_validation_csms_url():
     with pytest.raises(ValueError, match="CSMS_URL must start with ws:// or wss://"):
