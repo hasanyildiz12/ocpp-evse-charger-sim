@@ -409,6 +409,9 @@ class ChargePoint:
                 self.current_status = "CONNECTED"
             self.display.set_user_id(self.config.user_id_tag)
 
+            # Start recv_loop BEFORE boot_notification so responses are read
+            recv_task = asyncio.create_task(self.client.recv_loop())
+
             response = await self.boot_notification()
             
             interval = response.get("interval", self.config.heartbeat_interval)
@@ -421,7 +424,7 @@ class ChargePoint:
             await self.status_notification(1, "Available")
 
             tasks = [
-                asyncio.create_task(self.client.recv_loop()),
+                recv_task,
                 asyncio.create_task(self.console_input()),
                 asyncio.create_task(self.clock_loop()),
                 asyncio.create_task(self.status_update_loop()),
