@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="MIT License">
 </p>
 
-<h1 align="center">⚡ ocpp-projectMTLSN</h1>
+<h1 align="center">⚡ ocpp-evse-charger-simulator-project</h1>
 
 <p align="center">
   <strong>Production-Ready, Modular OCPP 1.6J EV Charge Point Simulator & Hardware Controller</strong><br>
