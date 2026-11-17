@@ -28,3 +28,7 @@ Thumbs.db
 *.log
 *.bak
 *.tmp
+
+# ─── Visual Studio ───────────────────────────────────────────────────────────
+.vs/
+.pytest_cache/

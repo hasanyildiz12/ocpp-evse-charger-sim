@@ -254,6 +254,8 @@ class ModbusMeter(IMeterReader):
         return int(round(value * 1000))
 
 class MockMeter(IMeterReader):
+    """Deterministic meter for tests: +increment_wh on every read."""
+
     def __init__(self, initial_wh: int = 0, increment_wh: int = 500):
         self.initial_wh = initial_wh
         self.increment_wh = increment_wh
@@ -267,6 +269,36 @@ class MockMeter(IMeterReader):
         val = self.initial_wh + (self.call_count * self.increment_wh)
         self.call_count += 1
         return val
+
+    def close(self) -> None:
+        pass
+
+
+class SimulatedMeter(IMeterReader):
+    """Energy register that grows at ``power_w`` while ``is_drawing()`` is True.
+
+    Used when no Modbus meter is present. Values are NOT real measurements —
+    never use this on a station that bills customers.
+    """
+
+    def __init__(self, power_w: float = 7400.0, initial_wh: float = 0.0, is_drawing: Optional[Callable[[], bool]] = None):
+        import time as _time
+        self._time = _time
+        self.power_w = power_w
+        self._wh = float(initial_wh)
+        self._last = _time.monotonic()
+        self.is_drawing = is_drawing or (lambda: False)
+        self.log: LogFn = lambda l, m: None
+
+    def configure_logger(self, log_fn: LogFn) -> None:
+        self.log = log_fn
+
+    def read_wh(self) -> Optional[int]:
+        now = self._time.monotonic()
+        if self.is_drawing():
+            self._wh += self.power_w * (now - self._last) / 3600.0
+        self._last = now
+        return int(round(self._wh))
 
     def close(self) -> None:
         pass

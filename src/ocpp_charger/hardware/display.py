@@ -37,7 +37,7 @@ class IDisplayDriver(ABC):
         pass
 
     @abstractmethod
-    def update_charging_info(self, energy_kwh: float, power_kw: float, elapsed_seconds: float, cost: float) -> None:
+    def update_charging_info(self, energy_kwh: float, power_kw: float, elapsed_seconds: float, cost: float, currency: str = "$") -> None:
         pass
 
     @abstractmethod
@@ -55,6 +55,11 @@ class RGB565:
     YELLOW = 65504
 
 TOUCH_COMP_USER_ID_TAG = 2
+
+
+def _nx(text: str) -> str:
+    """Make text safe inside a Nextion string literal."""
+    return str(text).replace("\\", "/").replace('"', "'")
 
 class NextionDisplay(IDisplayDriver):
     def __init__(self, port: str, baudrate: int, logger: Callable, pic_car_connected: int, pic_car_disconnected: int):
@@ -94,32 +99,42 @@ class NextionDisplay(IDisplayDriver):
             "NOT CONNECTED": RGB565.RED,
             "CONNECTED":     RGB565.CYAN,
             "AVAILABLE":     RGB565.CYAN,
+            "PREPARING":     RGB565.CYAN,
             "CHARGING":      RGB565.GREEN,
+            "SUSPENDEDEV":   RGB565.YELLOW,
+            "SUSPENDEDEVSE": RGB565.YELLOW,
+            "FINISHING":     RGB565.CYAN,
             "VENTILATION":   RGB565.YELLOW,
             "FAULT":         RGB565.RED,
+            "FAULTED":       RGB565.RED,
             "UNAVAILABLE":   RGB565.RED,
         }
-        
+
         display_text = {
             "NOT CONNECTED": "Not Connected",
             "CONNECTED":     "Connected",
             "AVAILABLE":     "Available",
+            "PREPARING":     "Preparing",
             "CHARGING":      "Charging",
+            "SUSPENDEDEV":   "Suspended EV",
+            "SUSPENDEDEVSE": "Suspended",
+            "FINISHING":     "Finishing",
             "VENTILATION":   "Ventilation",
             "FAULT":         "Fault",
+            "FAULTED":       "Fault",
             "UNAVAILABLE":   "Unavailable",
         }
         text_to_show = display_text.get(normalized, normalized.title())
-        
+
         if normalized == "CHARGING":
             pic = 0
-        elif normalized in ("NOT CONNECTED", "FAULT", "UNAVAILABLE"):
+        elif normalized in ("NOT CONNECTED", "FAULT", "FAULTED", "UNAVAILABLE"):
             pic = self.pic_car_disconnected
         else:
             pic = self.pic_car_connected
 
         pco = colors.get(normalized, RGB565.RED)
-        self.send_command(f'con.txt="{text_to_show}"')
+        self.send_command(f'con.txt="{_nx(text_to_show)}"')
         self.send_command(f"con.pco={pco}")
         self.send_command(f"araba.pic={pic}")
 
@@ -129,31 +144,29 @@ class NextionDisplay(IDisplayDriver):
         self.send_command(f'saat.txt="{utc}"')
 
     def set_user_id(self, id_tag: str) -> None:
-        self.send_command(f'userinfo.txt="{id_tag}"')
+        self.send_command(f'userinfo.txt="{_nx(id_tag)}"')
 
-    def update_charging_info(self, energy_kwh: float, power_kw: float, elapsed_seconds: float, cost: float) -> None:
+    def update_charging_info(self, energy_kwh: float, power_kw: float, elapsed_seconds: float, cost: float, currency: str = "$") -> None:
+        cur = _nx(currency)
         if elapsed_seconds >= 0:
             h = int(elapsed_seconds // 3600)
             m = int((elapsed_seconds % 3600) // 60)
             s = int(elapsed_seconds % 60)
             self.send_command(f'time.txt="TIME : {h:02d}.{m:02d}.{s:02d}"')
             self.send_command(f'energy.txt="amount of use : {energy_kwh:.2f} kWh"')
-            self.send_command(f'cost.txt="{cost:.2f} $"')
-            if power_kw > 0:
-                self.send_command(f'power.txt="POWER : {power_kw:.2f} kW"')
-            else:
-                self.send_command('power.txt="POWER : 0.00 kW"')
+            self.send_command(f'cost.txt="{cost:.2f} {cur}"')
+            self.send_command(f'power.txt="POWER : {max(power_kw, 0.0):.2f} kW"')
         else:
             self.send_command('time.txt="TIME : 00.00.00"')
             self.send_command('energy.txt="amount of use : 0.00 kWh"')
-            self.send_command('cost.txt="0.00 $"')
+            self.send_command(f'cost.txt="0.00 {cur}"')
             self.send_command('power.txt="POWER : 0.00 kW"')
 
     def show_page(self, page: str) -> None:
         self.send_command(f'page {page}')
 
     async def read_touch_events(self) -> AsyncIterator[TouchEvent]:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         buf = bytearray()
         while True:
             if self._serial is None:
@@ -197,10 +210,13 @@ class NullDisplay(IDisplayDriver):
         pass
     def set_user_id(self, id_tag: str) -> None:
         pass
-    def update_charging_info(self, energy_kwh: float, power_kw: float, elapsed_seconds: float, cost: float) -> None:
+    def update_charging_info(self, energy_kwh: float, power_kw: float, elapsed_seconds: float, cost: float, currency: str = "$") -> None:
         pass
     def show_page(self, page: str) -> None:
         pass
     async def read_touch_events(self) -> AsyncIterator[TouchEvent]:
+        # Async generator that never yields an event.
         while True:
-            await asyncio.sleep(1)
+            await asyncio.sleep(3600)
+            if False:  # pragma: no cover
+                yield TouchEvent(0, 0, 0)
