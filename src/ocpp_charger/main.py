@@ -24,7 +24,7 @@ from ocpp_charger.logger import Logger
 from ocpp_charger.charge_point import ChargePoint
 from ocpp_charger.protocol.client import OcppClient
 from ocpp_charger.hardware.display import IDisplayDriver, NextionDisplay, NullDisplay
-from ocpp_charger.hardware.meter import IMeterReader, ModbusMeter, SimulatedMeter
+from ocpp_charger.hardware.meter import EstimatedMeter, IMeterReader
 from ocpp_charger.hardware.cp_signal import Ads1115CpReader, ICpSignalReader, MockCpReader
 from ocpp_charger.hardware.pilot import IPilotPwm, MockPilotPwm, RpiHardwarePwm
 from ocpp_charger.hardware.nfc import INfcReader, MockNfcReader, Pn532Reader
@@ -40,6 +40,14 @@ class Hardware:
     simulated: list
 
 
+PWM_HINT = ("/boot/firmware/config.txt dosyasına 'dtoverlay=pwm,pin=12,func=4' ekleyip yeniden başlat; "
+            "/sys/class/pwm/pwmchip0 görünmeli. Paket: pip install rpi-hardware-pwm")
+ADS1115_HINT = ("'i2cdetect -y 1' çıktısında 48 görünmeli. Kontrol et: VDD→3.3V (pin 1), GND (pin 6), "
+                "SDA→GPIO2 (pin 3), SCL→GPIO3 (pin 5), ADDR→GND (boşta kalırsa adres belirsiz)")
+PN532_HINT = ("'i2cdetect -y 1' çıktısında 24 görünmeli. PN532 üzerindeki seçim anahtarları I2C konumunda olmalı "
+              "(SEL0=1, SEL1=0)")
+
+
 def _looks_like_pi() -> bool:
     return sys.platform.startswith("linux") and os.path.exists("/dev/i2c-1")
 
@@ -52,10 +60,12 @@ def build_hardware(config: ChargePointConfig, logger: Logger) -> Hardware:
     strict = mode == "pi"
     simulated = []
 
-    def fallback(name: str, err: Exception):
+    def fallback(name: str, err: Exception, hint: str = ""):
         if strict:
-            raise RuntimeError(f"{name} başlatılamadı (HARDWARE_MODE=pi): {err}") from err
+            raise RuntimeError(f"{name} başlatılamadı (HARDWARE_MODE=pi): {err}. {hint}") from err
         logger("WARN", f"{name} kullanılamıyor ({err}) → SİMÜLE ediliyor")
+        if hint:
+            logger("WARN", f"  ↳ {hint}")
         simulated.append(name)
 
     # PWM
@@ -67,7 +77,7 @@ def build_hardware(config: ChargePointConfig, logger: Logger) -> Hardware:
             pwm = real
             logger("INFO", f"Pilot PWM hazır (chip {config.pwm_chip} ch {config.pwm_channel}, {config.pwm_frequency_hz} Hz)")
         except Exception as e:
-            fallback("Pilot PWM (GPIO12)", e)
+            fallback("Pilot PWM (GPIO12)", e, PWM_HINT)
     if isinstance(pwm, MockPilotPwm):
         pwm.open()
 
@@ -85,7 +95,7 @@ def build_hardware(config: ChargePointConfig, logger: Logger) -> Hardware:
                 cp_reader = reader
                 logger("INFO", "ADS1115 hazır (A0=CP, A1=PP)")
             except Exception as e:
-                fallback("ADS1115", e)
+                fallback("ADS1115", e, ADS1115_HINT)
                 cp_reader = _mock_cp(config, pwm)
 
     # NFC
@@ -100,7 +110,7 @@ def build_hardware(config: ChargePointConfig, logger: Logger) -> Hardware:
                 nfc = reader
                 logger("INFO", "PN532 NFC hazır")
             except Exception as e:
-                fallback("PN532 NFC", e)
+                fallback("PN532 NFC", e, PN532_HINT)
                 nfc = MockNfcReader()
 
     # Display
@@ -112,18 +122,8 @@ def build_hardware(config: ChargePointConfig, logger: Logger) -> Hardware:
                                  config.pic_car_connected, config.pic_car_disconnected)
     display.open()
 
-    # Meter
-    meter: IMeterReader
-    if mode == "sim":
-        meter = SimulatedMeter()
-    else:
-        modbus = ModbusMeter(log=logger)
-        if modbus.read_wh() is not None:
-            meter = modbus
-        else:
-            modbus.close()
-            fallback("Modbus sayaç", RuntimeError("okuma yapılamadı"))
-            meter = SimulatedMeter()
+    # Meter: the board has none → energy is estimated from the offered current
+    meter: IMeterReader = EstimatedMeter()
     meter.configure_logger(logger)
 
     if mode == "sim":
@@ -155,8 +155,10 @@ def run_charge_point(config: ChargePointConfig) -> None:
     cp = ChargePoint(config=config, client=client, display=hw.display, meter=hw.meter,
                      cp_reader=hw.cp_reader, logger=logger, pwm=hw.pwm, nfc=hw.nfc)
 
-    if isinstance(hw.meter, SimulatedMeter):
-        hw.meter.is_drawing = lambda: cp.transaction_active and cp.pilot_state == "C"
+    if isinstance(hw.meter, EstimatedMeter):
+        hw.meter.power_fn = cp.estimated_power_w
+        logger("INFO", f"Enerji tahmini: teklif edilen akım × {config.nominal_voltage:.0f} V × "
+                       f"{config.phases} faz (kartta sayaç yok)")
 
     try:
         asyncio.run(cp.run())

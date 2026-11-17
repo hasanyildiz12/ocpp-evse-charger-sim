@@ -2,4 +2,3 @@
 rpi-hardware-pwm>=0.2.0           # GPIO12 pilot PWM (dtoverlay=pwm,pin=12,func=4)
 adafruit-circuitpython-ads1x15    # ADS1115 (A0 CP, A1 PP)
 smbus2                            # PN532 NFC over I2C
-pymodbus                          # Modbus RTU energy meter

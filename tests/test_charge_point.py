@@ -329,3 +329,22 @@ async def test_debounce_requires_two_samples(make_cp):
     assert cp.pilot_state is None
     await cp.process_pilot("B")
     assert cp.pilot_state == "B"
+
+
+async def test_estimated_power_only_while_charging(make_cp):
+    cp, client = make_cp(max_current_a=16, nominal_voltage=230, phases=1)
+    await cp.process_pilot("A", debounce=False)
+    await cp.on_card("97350E07")
+    await cp.process_pilot("B", debounce=False)
+    assert cp.estimated_power_w() == 0          # EV connected but not drawing
+    await cp.process_pilot("C", debounce=False)
+    assert cp.estimated_power_w() == 16 * 230
+    await cp.on_card("97350E07")
+    assert cp.estimated_power_w() == 0          # stopped
+
+
+def test_phases_must_be_1_or_3():
+    import pytest
+    from ocpp_charger.config import ChargePointConfig
+    with pytest.raises(ValueError):
+        ChargePointConfig(phases=2)

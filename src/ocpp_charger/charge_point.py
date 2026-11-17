@@ -203,6 +203,12 @@ class ChargePoint:
             amps = min(amps, self.cable_max_current)
         return amps
 
+    def estimated_power_w(self) -> float:
+        """Upper-bound power estimate for the meter: offered current while the EV charges."""
+        if not (self.transaction_active and self.pilot_state == "C" and self.pwm.offering):
+            return 0.0
+        return self.offered_current() * self.config.nominal_voltage * self.config.phases
+
     # ─── OCPP CP→CSMS messages ───────────────────────────────────────────────
     async def authorize(self, id_tag: str) -> bool:
         resp = await self._call(Action.AUTHORIZE, {"idTag": id_tag})

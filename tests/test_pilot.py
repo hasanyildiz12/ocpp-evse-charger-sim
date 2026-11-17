@@ -72,3 +72,22 @@ def test_pwm_states():
     assert pwm.offering
     pwm.disable()
     assert pwm.duty == 0.0
+
+
+# ─── Energy estimate (no meter on the board) ─────────────────────────────────
+from ocpp_charger.hardware.meter import EstimatedMeter
+
+
+def test_estimated_meter_integrates_power():
+    now = [0.0]
+    m = EstimatedMeter(power_fn=lambda: 3680.0, clock=lambda: now[0])
+    assert m.read_wh() == 0
+    now[0] = 3600.0
+    assert m.read_wh() == 3680
+
+
+def test_estimated_meter_idle_does_not_count():
+    now = [0.0]
+    m = EstimatedMeter(power_fn=lambda: 0.0, clock=lambda: now[0])
+    now[0] = 3600.0
+    assert m.read_wh() == 0

@@ -19,7 +19,6 @@ pi = [
     "rpi-hardware-pwm>=0.2.0",
     "adafruit-circuitpython-ads1x15",
     "smbus2",
-    "pymodbus",
 ]
 dev = [
     "pytest>=7.0",

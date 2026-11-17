@@ -75,6 +75,26 @@ Araçlar: multimetre, osiloskop (tercihen), 1N4148 diyot, 2.74 kΩ, 1.3 kΩ, 270
 - +12 V–GND, +3.3 V–GND ve -12 V–GND arasında kısa devre olmamalı.
 - LM358 ve TC1044S pin sırası adaptör üzerinde doğru olmalı (pin 1 işareti).
 
+**ADS1115 bağlantısı (şematik, U1 modülü → Pi)**
+
+| ADS1115 pini | Bağlantı | Pi pini |
+|---|---|---|
+| VDD | +3.3 V | 1 |
+| GND | GND | 6 |
+| SCL | GPIO3 / SCL | 5 |
+| SDA | GPIO2 / SDA | 3 |
+| ADDR | GND → adres **0x48** (VDD → 0x49, SDA → 0x4A, SCL → 0x4B) | — |
+| ALRT | boş | — |
+| A0 | PILOTREAD (R7/R6/R5 düğümü) | — |
+| A1 | PP_SIGNAL (R2 330 Ω / C1) | — |
+| A2, A3 | GND | — |
+
+`i2cdetect -y 1` çıktısında **48** ve **24** görünmeli. PN532 (24) görünüp ADS1115 (48) görünmüyorsa I2C hattı sağlamdır; sorun ADS1115'in kendisindedir:
+- VDD–GND arasını ölç (3.3 V olmalı).
+- ADDR pininin gerçekten GND'ye lehimli olduğunu kontrol et. Boşta kalırsa adres belirsizdir.
+- 48 yerine 49/4A/4B görünüyorsa ADDR yanlış yere bağlı. Ya bağlantıyı düzelt ya da koddaki adresi değiştir.
+- SDA/SCL'nin modülde yer değiştirmediğini kontrol et (PN532 ile aynı hatta, paralel olmalı).
+
 **Adım 1 — Besleme** (önce Pi'yi, sonra 12 V'u aç)
 
 | Ölçüm noktası | Beklenen |
@@ -137,7 +157,7 @@ CP_THRESHOLD_D=1.3
 **Adım 5 — NFC:** `python main.py` ile başlat. Kart okutunca logda `Kart okundu: UID=...` görünmeli.
 
 **Adım 6 — Uçtan uca (PowerFill ile)**
-1. `python main.py` (`HARDWARE_MODE=auto`). Sayaç yoksa simüle sayaç kullanılır ve uyarı loglanır.
+1. `python main.py` (`HARDWARE_MODE=auto`). Kartta sayaç yok; enerji, teklif edilen akım × `NOMINAL_VOLTAGE` × `PHASES` ile tahmin edilir.
 2. Kartı okut → `Authorize` Accepted → durum `Preparing`.
 3. Simülatörü B'ye al → `StartTransaction` gönderilir ve PWM başlar (osiloskopta gör) → durum `SuspendedEV`.
 4. S2'yi kapat (C) → durum `Charging`, `MeterValues` gelmeye başlar.

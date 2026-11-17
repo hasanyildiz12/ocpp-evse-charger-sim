@@ -12,7 +12,7 @@
 
 <p align="center">
   <strong>OCPP 1.6J EV Charge Point Controller & Simulator for Raspberry Pi</strong><br>
-  <em>IEC 61851-1 control pilot (PWM + ADS1115), NFC card per session, Nextion HMI, Modbus meter — with a full desktop simulation mode.</em>
+  <em>IEC 61851-1 control pilot (PWM + ADS1115), NFC card per session, Nextion HMI — with a full desktop simulation mode.</em>
 </p>
 
 ---
@@ -34,13 +34,17 @@ simulated EV / meter / NFC reader on a desktop PC.
                   ┌──────────────────────────────┐
                   │   Raspberry Pi Zero 2 W      │
                   └──────────────┬───────────────┘
-     ┌──────────────┬────────────┼──────────────┬──────────────────┐
-     ▼ UART         ▼ USB RS-485 ▼ I2C          ▼ I2C              ▼ GPIO12 (PWM0)
-┌──────────┐  ┌────────────┐ ┌──────────────┐ ┌──────────┐  ┌──────────────────────┐
-│ Nextion  │  │ Modbus     │ │ ADS1115 0x48 │ │ PN532    │  │ LM358 comparator     │
-│ HMI      │  │ meter (Wh) │ │ A0=CP  A1=PP │ │ NFC 0x24 │  │ ±12 V (TC1044S) → CP │
-└──────────┘  └────────────┘ └──────────────┘ └──────────┘  └──────────────────────┘
+     ┌──────────────┬────────────┴─────┬──────────────────┐
+     ▼ UART         ▼ I2C              ▼ I2C              ▼ GPIO12 (PWM0)
+┌──────────┐  ┌──────────────┐  ┌──────────┐  ┌──────────────────────┐
+│ Nextion  │  │ ADS1115 0x48 │  │ PN532    │  │ LM358 comparator     │
+│ HMI      │  │ A0=CP  A1=PP │  │ NFC 0x24 │  │ ±12 V (TC1044S) → CP │
+└──────────┘  └──────────────┘  └──────────┘  └──────────────────────┘
 ```
+
+The board has no energy meter: energy is **estimated** as offered current ×
+`NOMINAL_VOLTAGE` × `PHASES` while the EV is in state C. The EV may draw less
+than offered, so treat it as an upper bound, not a billing value.
 
 `HARDWARE_MODE=auto` (default) uses whatever is found and simulates the rest
 with a warning; `pi` refuses to start without all devices; `sim` simulates
@@ -57,7 +61,7 @@ graph TD
     B --> I["ICpSignalReader (Ads1115CpReader / MockCpReader)"]
     B --> N["INfcReader (Pn532Reader / MockNfcReader)"]
     B --> G["IDisplayDriver (Nextion / Null)"]
-    B --> H["IMeterReader (ModbusMeter / SimulatedMeter)"]
+    B --> H["IMeterReader (EstimatedMeter)"]
 ```
 
 ## 📦 Project Structure
@@ -77,7 +81,7 @@ graph TD
 │   ├── hardware/cp_signal.py    # ADS1115, CP divider math, PP decoding
 │   ├── hardware/nfc.py          # PN532 over I2C
 │   ├── hardware/display.py      # Nextion
-│   ├── hardware/meter.py        # Modbus RTU meter, simulated meter
+│   ├── hardware/meter.py        # energy estimate from the offered current
 │   └── tools/pilot_test.py      # bench test for the pilot board
 ├── tests/
 └── docs/

@@ -111,6 +111,11 @@ class ChargePointConfig:
     pp_pullup_ohm: float = 330.0            # R2
     pp_required: bool = False               # True: refuse to charge without a valid cable code
 
+    # ─── Energy estimate (no meter on the board) ────────────────────────────
+    # P = offered current × NOMINAL_VOLTAGE × PHASES while the EV is in state C
+    nominal_voltage: float = 230.0
+    phases: int = 1
+
     # ─── Nextion Display ─────────────────────────────────────────────────────
     nextion_port: str = "/dev/serial0"
     nextion_baudrate: int = 9600
@@ -170,6 +175,10 @@ class ChargePointConfig:
             raise ValueError("HARDWARE_MODE must be one of: auto, pi, sim")
         if not 6.0 <= self.max_current_a <= 80.0:
             raise ValueError("MAX_CURRENT_A must be between 6 and 80 A (IEC 61851-1)")
+        if self.phases not in (1, 3):
+            raise ValueError("PHASES must be 1 or 3")
+        if self.nominal_voltage <= 0:
+            raise ValueError("NOMINAL_VOLTAGE must be > 0")
         if not (self.cp_threshold_a > self.cp_threshold_b > self.cp_threshold_c > self.cp_threshold_d):
             raise ValueError("CP thresholds must satisfy A > B > C > D")
         self.nfc_id_tag_map = {k.upper(): v for k, v in self.nfc_id_tag_map.items()}
