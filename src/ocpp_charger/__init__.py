@@ -1,2 +1,2 @@
 """OCPP 1.6J Charge Point Simulator — Refactored Architecture."""
-__version__ = "2.0.0"
+__version__ = "2.1.0"

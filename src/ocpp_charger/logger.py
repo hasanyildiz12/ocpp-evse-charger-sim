@@ -37,12 +37,23 @@ class Logger:
     def log(self, direction: str, msg: str) -> None:
         ts = self._ts()
         color = self.DIRECTION_COLORS.get(direction, self.RESET)
-        print(
+        line = (
             f"{self.DIM}{ts}{self.RESET}  "
             f"{color}{self.BOLD}{direction:<4}{self.RESET}  "
             f"{msg}"
         )
-        sys.stdout.flush()
+        # Logging must never break the caller (e.g. non-UTF-8 console on Windows).
+        try:
+            print(line)
+        except UnicodeEncodeError:
+            enc = getattr(sys.stdout, "encoding", None) or "ascii"
+            print(line.encode(enc, errors="replace").decode(enc, errors="replace"))
+        except Exception:
+            return
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
 
     def __call__(self, direction: str, msg: str) -> None:
         """Shortcut so the logger can be passed as a plain callable."""
